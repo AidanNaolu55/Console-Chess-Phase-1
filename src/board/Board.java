@@ -84,6 +84,14 @@ public class Board {
             System.out.println(); // Move to the next line after finishing a row
         }
     }
+
+    /**
+     * Returns the piece at the specified position.
+     */
+    public Piece getPiece(Position position) {
+        return grid[position.getRow()][position.getColumn()];
+    }
+    
     /**
      * Moves a piece from one position to another.
      * For Phase 1, this just physically moves the piece in the array 

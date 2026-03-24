@@ -1,9 +1,9 @@
 package pieces;
 
 import board.Position;
-import utils.Color;
 import java.util.ArrayList;
 import java.util.List;
+import utils.Color;
 
 public class Bishop extends Piece {
 

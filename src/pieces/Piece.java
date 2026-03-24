@@ -2,8 +2,8 @@ package pieces;
 
 
 import board.Position;
-import utils.Color;
 import java.util.List;
+import utils.Color;
 
 /**
  * The abstract blueprint for all chess pieces.
