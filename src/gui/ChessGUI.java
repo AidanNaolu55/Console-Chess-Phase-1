@@ -12,7 +12,18 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
-import javax.swing.JOptionPane; // NEW IMPORT FOR POP-UPS
+import javax.swing.JOptionPane;
+// --- NEW IMPORTS FOR MENU BAR ---
+import javax.swing.JMenuBar;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
+
+import javax.swing.JFileChooser;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
+import java.io.FileOutputStream;
+import java.io.FileInputStream;
+import java.io.IOException;
 
 /**
  * Represents the Graphical User Interface for the Console Chess Game.
@@ -38,9 +49,43 @@ public class ChessGUI {
 
         initializeBoard();
         refreshBoard(); 
+        
+        // --- ADDED MENU BAR INITIALIZATION ---
+        setupMenuBar();
 
         frame.add(boardPanel, BorderLayout.CENTER);
         frame.setVisible(true);
+    }
+
+    /**
+     * Builds the top menu bar with Game controls.
+     */
+    private void setupMenuBar() {
+        JMenuBar menuBar = new JMenuBar();
+        JMenu gameMenu = new JMenu("Game");
+
+        JMenuItem newGameItem = new JMenuItem("New Game");
+        JMenuItem saveGameItem = new JMenuItem("Save Game");
+        JMenuItem loadGameItem = new JMenuItem("Load Game");
+
+        // Wire up the New Game button
+        newGameItem.addActionListener(e -> {
+            backendBoard = new Board(); // Create a brand new backend board
+            selectedPosition = null;    // Clear any selections
+            resetBoardColors();         // Fix visual highlights
+            refreshBoard();             // Redraw the starting pieces
+        });
+
+        // Wire up the Save and Load buttons
+        saveGameItem.addActionListener(e -> saveGameToFile());
+        loadGameItem.addActionListener(e -> loadGameFromFile());
+
+        gameMenu.add(newGameItem);
+        gameMenu.add(saveGameItem);
+        gameMenu.add(loadGameItem);
+        menuBar.add(gameMenu);
+
+        frame.setJMenuBar(menuBar);
     }
 
     private void initializeBoard() {
@@ -64,9 +109,6 @@ public class ChessGUI {
         resetBoardColors();
     }
 
-    /**
-     * Handles the logic for a two-click movement system and endgame detection.
-     */
     private void handleSquareClick(int row, int col) {
         Position clickedPos = new Position(row, col);
 
@@ -83,7 +125,6 @@ public class ChessGUI {
             Piece movingPiece = backendBoard.getPiece(selectedPosition);
             Piece targetPiece = backendBoard.getPiece(clickedPos);
             
-            // Check if a King is about to be captured
             boolean isKingCaptured = (targetPiece instanceof King);
 
             backendBoard.movePiece(selectedPosition, clickedPos);
@@ -92,7 +133,6 @@ public class ChessGUI {
             resetBoardColors();      
             refreshBoard();          
 
-            // Trigger the endgame pop-up if the King was captured
             if (isKingCaptured) {
                 String winner = (movingPiece.getColor() == Color.WHITE) ? "White" : "Black";
                 JOptionPane.showMessageDialog(frame, 
@@ -100,7 +140,7 @@ public class ChessGUI {
                     "Game Over", 
                     JOptionPane.INFORMATION_MESSAGE);
                 
-                System.exit(0); // Terminate the game [cite: 23]
+                System.exit(0); 
             }
         }
     }
@@ -141,5 +181,55 @@ public class ChessGUI {
         if (piece instanceof Pawn) return isWhite ? "\u2659" : "\u265F";
         
         return "";
+    }
+
+    /**
+     * Opens a file dialog and saves the current Board object to a file.
+     */
+    private void saveGameToFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        int option = fileChooser.showSaveDialog(frame);
+        
+        if (option == JFileChooser.APPROVE_OPTION) {
+            try (ObjectOutputStream out = new ObjectOutputStream(
+                    new FileOutputStream(fileChooser.getSelectedFile()))) {
+                
+                out.writeObject(backendBoard);
+                JOptionPane.showMessageDialog(frame, "Game saved successfully!");
+                
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(frame, 
+                    "Error saving game: " + ex.getMessage(), 
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    /**
+     * Opens a file dialog, loads a Board object from a file, and redraws the GUI.
+     */
+    private void loadGameFromFile() {
+        JFileChooser fileChooser = new JFileChooser();
+        int option = fileChooser.showOpenDialog(frame);
+        
+        if (option == JFileChooser.APPROVE_OPTION) {
+            try (ObjectInputStream in = new ObjectInputStream(
+                    new FileInputStream(fileChooser.getSelectedFile()))) {
+                
+                backendBoard = (Board) in.readObject();
+                
+                // Reset the GUI state to match the loaded board
+                selectedPosition = null;
+                resetBoardColors();
+                refreshBoard();
+                
+                JOptionPane.showMessageDialog(frame, "Game loaded successfully!");
+                
+            } catch (IOException | ClassNotFoundException ex) {
+                JOptionPane.showMessageDialog(frame, 
+                    "Error loading game: " + ex.getMessage(), 
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 }
