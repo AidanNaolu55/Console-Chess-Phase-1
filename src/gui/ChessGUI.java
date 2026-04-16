@@ -21,11 +21,10 @@ public class ChessGUI {
     private JPanel boardPanel;
     private JButton[][] squares = new JButton[8][8];
     private Board backendBoard;
+    
+    // Tracks the piece currently selected by the user
+    private Position selectedPosition = null;
 
-    /**
-     * Constructor for the ChessGUI.
-     * @param board The backend chess board containing the game state.
-     */
     public ChessGUI(Board board) {
         this.backendBoard = board;
 
@@ -38,40 +37,80 @@ public class ChessGUI {
         boardPanel.setLayout(new GridLayout(8, 8)); 
 
         initializeBoard();
-        refreshBoard(); // Draw the pieces for the first time
+        refreshBoard(); 
 
         frame.add(boardPanel, BorderLayout.CENTER);
         frame.setVisible(true);
     }
 
-    /**
-     * Fills the board panel with JButton squares and colors them.
-     */
     private void initializeBoard() {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
+                // These final variables are required so the lambda expression 
+                // inside the ActionListener knows exactly which coordinates it holds
+                final int r = row;
+                final int c = col;
+
                 JButton square = new JButton();
                 square.setOpaque(true);
                 square.setBorderPainted(false);
-                // Set a large font so the Unicode chess characters are visible
                 square.setFont(new Font("SansSerif", Font.PLAIN, 60));
                 square.setHorizontalAlignment(SwingConstants.CENTER);
 
-                if ((row + col) % 2 == 0) {
-                    square.setBackground(java.awt.Color.decode("#F0D9B5")); 
-                } else {
-                    square.setBackground(java.awt.Color.decode("#B58863")); 
-                }
+                // Add the click listener
+                square.addActionListener(e -> handleSquareClick(r, c));
 
                 squares[row][col] = square;
                 boardPanel.add(square);
             }
         }
+        resetBoardColors(); // Sets the initial wood colors
     }
 
     /**
-     * Syncs the visual GUI board with the backend Board state.
+     * Handles the logic for a two-click movement system.
      */
+    private void handleSquareClick(int row, int col) {
+        Position clickedPos = new Position(row, col);
+
+        // Click 1: Selecting a piece
+        if (selectedPosition == null) {
+            Piece clickedPiece = backendBoard.getPiece(clickedPos);
+            
+            // Only select if the square actually has a piece in it
+            if (clickedPiece != null) { 
+                selectedPosition = clickedPos;
+                squares[row][col].setBackground(java.awt.Color.decode("#FFFFA0")); // Highlight yellow
+            }
+        } 
+        // Click 2: Moving the selected piece to a destination
+        else {
+            // Note: Phase 2 instructions say "Movement validation is not required". 
+            // So we blindly move the piece. If an opponent is there, movePiece() 
+            // naturally overwrites them, fulfilling the capture requirement!
+            backendBoard.movePiece(selectedPosition, clickedPos);
+            
+            selectedPosition = null; // Clear the selection state
+            resetBoardColors();      // Remove the yellow highlight
+            refreshBoard();          // Redraw the pieces in their new squares
+        }
+    }
+
+    /**
+     * Resets all squares back to their alternating dark and light wood colors.
+     */
+    private void resetBoardColors() {
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                if ((row + col) % 2 == 0) {
+                    squares[row][col].setBackground(java.awt.Color.decode("#F0D9B5")); 
+                } else {
+                    squares[row][col].setBackground(java.awt.Color.decode("#B58863")); 
+                }
+            }
+        }
+    }
+
     public void refreshBoard() {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
@@ -79,17 +118,12 @@ public class ChessGUI {
                 if (piece != null) {
                     squares[row][col].setText(getPieceSymbol(piece));
                 } else {
-                    squares[row][col].setText(""); // Empty square
+                    squares[row][col].setText(""); 
                 }
             }
         }
     }
 
-    /**
-     * Translates a backend Piece object into its corresponding Unicode character.
-     * @param piece The piece to translate.
-     * @return The Unicode string representation of the piece.
-     */
     private String getPieceSymbol(Piece piece) {
         boolean isWhite = piece.getColor() == Color.WHITE;
 
