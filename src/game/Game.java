@@ -106,8 +106,15 @@ public class Game {
         return new Position(row, col);
     }
 
+    // Don't forget to import your new class at the top of the file!
+    // import gui.ChessGUI;
+
     public static void main(String[] args) {
-        Game chessGame = new Game();
-        chessGame.start();
+        // Commenting out the Phase 1 console game for now
+        // Game chessGame = new Game();
+        // chessGame.start();
+        
+        // Launching the Phase 2 GUI
+        new gui.ChessGUI();
     }
 }
