@@ -110,11 +110,10 @@ public class Game {
     // import gui.ChessGUI;
 
     public static void main(String[] args) {
-        // Commenting out the Phase 1 console game for now
-        // Game chessGame = new Game();
-        // chessGame.start();
+        // Create the backend board first
+        board.Board myBoard = new board.Board();
         
-        // Launching the Phase 2 GUI
-        new gui.ChessGUI();
+        // Pass it to the GUI so it can draw the pieces
+        new gui.ChessGUI(myBoard);
     }
 }
