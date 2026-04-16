@@ -12,6 +12,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.JOptionPane; // NEW IMPORT FOR POP-UPS
 
 /**
  * Represents the Graphical User Interface for the Console Chess Game.
@@ -22,7 +23,6 @@ public class ChessGUI {
     private JButton[][] squares = new JButton[8][8];
     private Board backendBoard;
     
-    // Tracks the piece currently selected by the user
     private Position selectedPosition = null;
 
     public ChessGUI(Board board) {
@@ -46,8 +46,6 @@ public class ChessGUI {
     private void initializeBoard() {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
-                // These final variables are required so the lambda expression 
-                // inside the ActionListener knows exactly which coordinates it holds
                 final int r = row;
                 final int c = col;
 
@@ -57,18 +55,17 @@ public class ChessGUI {
                 square.setFont(new Font("SansSerif", Font.PLAIN, 60));
                 square.setHorizontalAlignment(SwingConstants.CENTER);
 
-                // Add the click listener
                 square.addActionListener(e -> handleSquareClick(r, c));
 
                 squares[row][col] = square;
                 boardPanel.add(square);
             }
         }
-        resetBoardColors(); // Sets the initial wood colors
+        resetBoardColors();
     }
 
     /**
-     * Handles the logic for a two-click movement system.
+     * Handles the logic for a two-click movement system and endgame detection.
      */
     private void handleSquareClick(int row, int col) {
         Position clickedPos = new Position(row, col);
@@ -76,29 +73,38 @@ public class ChessGUI {
         // Click 1: Selecting a piece
         if (selectedPosition == null) {
             Piece clickedPiece = backendBoard.getPiece(clickedPos);
-            
-            // Only select if the square actually has a piece in it
             if (clickedPiece != null) { 
                 selectedPosition = clickedPos;
-                squares[row][col].setBackground(java.awt.Color.decode("#FFFFA0")); // Highlight yellow
+                squares[row][col].setBackground(java.awt.Color.decode("#FFFFA0")); 
             }
         } 
         // Click 2: Moving the selected piece to a destination
         else {
-            // Note: Phase 2 instructions say "Movement validation is not required". 
-            // So we blindly move the piece. If an opponent is there, movePiece() 
-            // naturally overwrites them, fulfilling the capture requirement!
+            Piece movingPiece = backendBoard.getPiece(selectedPosition);
+            Piece targetPiece = backendBoard.getPiece(clickedPos);
+            
+            // Check if a King is about to be captured
+            boolean isKingCaptured = (targetPiece instanceof King);
+
             backendBoard.movePiece(selectedPosition, clickedPos);
             
-            selectedPosition = null; // Clear the selection state
-            resetBoardColors();      // Remove the yellow highlight
-            refreshBoard();          // Redraw the pieces in their new squares
+            selectedPosition = null; 
+            resetBoardColors();      
+            refreshBoard();          
+
+            // Trigger the endgame pop-up if the King was captured
+            if (isKingCaptured) {
+                String winner = (movingPiece.getColor() == Color.WHITE) ? "White" : "Black";
+                JOptionPane.showMessageDialog(frame, 
+                    winner + " wins! The King has been captured.", 
+                    "Game Over", 
+                    JOptionPane.INFORMATION_MESSAGE);
+                
+                System.exit(0); // Terminate the game [cite: 23]
+            }
         }
     }
 
-    /**
-     * Resets all squares back to their alternating dark and light wood colors.
-     */
     private void resetBoardColors() {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
