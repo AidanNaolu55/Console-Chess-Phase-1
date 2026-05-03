@@ -1,9 +1,7 @@
 package utils;
 
-/**
- * Represents the two possible colors in a chess game.
- */
-public enum Color {
-    WHITE,
-    BLACK
+import java.io.Serializable;
+
+public enum Color implements Serializable {
+    WHITE, BLACK
 }

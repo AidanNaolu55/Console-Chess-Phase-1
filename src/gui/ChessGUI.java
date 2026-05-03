@@ -1,48 +1,49 @@
 package gui;
 
-import board.Board;
 import board.Position;
-import pieces.*;
-import utils.Color;
-
+import game.Game;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.io.*;
+import java.util.Stack;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import javax.swing.JOptionPane;
-import javax.swing.JMenuBar;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
+import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
-// --- NEW IMPORTS FOR HISTORY AND UNDO ---
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.swing.JLabel;
-import java.util.Stack;
-import java.io.*;
+import javax.swing.SwingConstants;
+import pieces.*;
+import utils.Color;
 
 /**
- * Represents the Graphical User Interface for the Console Chess Game.
+ * Represents the Graphical User Interface for the Chess Game.
  */
 public class ChessGUI {
     private JFrame frame;
     private JPanel boardPanel;
     private JButton[][] squares = new JButton[8][8];
-    private Board backendBoard;
+    
+    // --- UPDATED: NOW USES GAME INSTEAD OF BOARD ---
+    private Game backendGame;
     
     private Position selectedPosition = null;
 
-    // --- NEW VARIABLES FOR HISTORY PANEL ---
     private JTextArea moveHistoryArea;
-    private Stack<byte[]> undoStack = new Stack<>(); // Stores board snapshots
+    private Stack<byte[]> undoStack = new Stack<>();
 
-    public ChessGUI(Board board) {
-        this.backendBoard = board;
+    // --- UPDATED CONSTRUCTOR ---
+    public ChessGUI() {
+        this.backendGame = new Game(); // Initialize the game controller
 
-        frame = new JFrame("Chess Game - Phase 2");
-        frame.setSize(1000, 800); // Made the window a bit wider for the side panel
+        frame = new JFrame("Chess Game - Phase 3");
+        frame.setSize(1000, 800); 
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
@@ -53,15 +54,12 @@ public class ChessGUI {
         refreshBoard(); 
         
         setupMenuBar();
-        setupHistoryPanel(); // --- ADDED HISTORY PANEL ---
+        setupHistoryPanel(); 
 
         frame.add(boardPanel, BorderLayout.CENTER);
         frame.setVisible(true);
     }
 
-    /**
-     * Builds the right-side panel tracking moves, captures, and the Undo button.
-     */
     private void setupHistoryPanel() {
         JPanel historyPanel = new JPanel();
         historyPanel.setLayout(new BorderLayout());
@@ -89,10 +87,10 @@ public class ChessGUI {
         JMenuItem loadGameItem = new JMenuItem("Load Game");
 
         newGameItem.addActionListener(e -> {
-            backendBoard = new Board(); 
+            backendGame = new Game(); // --- UPDATED ---
             selectedPosition = null;    
-            undoStack.clear();          // Clear undo history
-            moveHistoryArea.setText(""); // Clear text history
+            undoStack.clear();          
+            moveHistoryArea.setText(""); 
             resetBoardColors();         
             refreshBoard();             
         });
@@ -134,58 +132,88 @@ public class ChessGUI {
 
         // Click 1: Selecting a piece
         if (selectedPosition == null) {
-            Piece clickedPiece = backendBoard.getPiece(clickedPos);
+            Piece clickedPiece = backendGame.getBoard().getPiece(clickedPos);
+            
             if (clickedPiece != null) { 
+                // --- NEW: CHECK IF IT IS THIS PLAYER'S TURN ---
+                if (clickedPiece.getColor() != backendGame.getCurrentTurn()) {
+                    JOptionPane.showMessageDialog(frame, 
+                        "It is " + backendGame.getCurrentTurn() + "'s turn!", 
+                        "Not Your Turn", 
+                        JOptionPane.WARNING_MESSAGE);
+                    return; 
+                }
+
                 selectedPosition = clickedPos;
                 squares[row][col].setBackground(java.awt.Color.decode("#FFFFA0")); 
             }
         } 
         // Click 2: Moving the selected piece to a destination
         else {
-            Piece movingPiece = backendBoard.getPiece(selectedPosition);
-            Piece targetPiece = backendBoard.getPiece(clickedPos);
+            Piece movingPiece = backendGame.getBoard().getPiece(selectedPosition);
+            java.util.List<Position> legalMoves = movingPiece.possibleMoves(backendGame.getBoard());
             
-            boolean isKingCaptured = (targetPiece != null && targetPiece instanceof King);
-
-            // --- TAKE A SNAPSHOT FOR THE UNDO STACK BEFORE MOVING ---
-            undoStack.push(takeBoardSnapshot());
-
-            // --- GENERATE MOVE HISTORY TEXT ---
-            String startLoc = "" + (char)('A' + selectedPosition.getColumn()) + (8 - selectedPosition.getRow());
-            String endLoc = "" + (char)('A' + clickedPos.getColumn()) + (8 - clickedPos.getRow());
-            String pieceName = movingPiece.getClass().getSimpleName();
-            String moveText = pieceName + " moved: " + startLoc + " -> " + endLoc;
+            // --- NEW: FILTER OUT MOVES THAT LEAVE THE KING IN CHECK ---
+            legalMoves.removeIf(pos -> backendGame.getBoard().testMoveLeavesKingInCheck(selectedPosition, pos, movingPiece.getColor()));
             
-            if (targetPiece != null) {
-                moveText += " (Captured " + targetPiece.getClass().getSimpleName() + ")";
-            }
-            moveHistoryArea.append(moveText + "\n");
+            if (legalMoves.contains(clickedPos)) {
+                Piece targetPiece = backendGame.getBoard().getPiece(clickedPos);
 
-            // Execute the physical move
-            backendBoard.movePiece(selectedPosition, clickedPos);
-            
-            selectedPosition = null; 
-            resetBoardColors();      
-            refreshBoard();          
+                // Take snapshot of the GAME before moving
+                undoStack.push(takeGameSnapshot());
 
-            if (isKingCaptured) {
-                String winner = (movingPiece.getColor() == Color.WHITE) ? "White" : "Black";
+                String startLoc = "" + (char)('A' + selectedPosition.getColumn()) + (8 - selectedPosition.getRow());
+                String endLoc = "" + (char)('A' + clickedPos.getColumn()) + (8 - clickedPos.getRow());
+                String pieceName = movingPiece.getClass().getSimpleName();
+                String moveText = pieceName + " moved: " + startLoc + " -> " + endLoc;
+                
+                if (targetPiece != null) {
+                    moveText += " (Captured " + targetPiece.getClass().getSimpleName() + ")";
+                }
+                moveHistoryArea.append(moveText + "\n");
+
+                // Execute physical move
+                backendGame.getBoard().movePiece(selectedPosition, clickedPos);
+                
+                // Switch turns after successful move
+                backendGame.switchTurn();
+
+                selectedPosition = null; 
+                resetBoardColors();      
+                refreshBoard();          
+
+                // --- NEW: CHECKMATE AND CHECK NOTIFICATIONS ---
+                Color nextTurnColor = backendGame.getCurrentTurn();
+                
+                if (backendGame.getBoard().isCheckmate(nextTurnColor)) {
+                    String winner = (nextTurnColor == Color.WHITE) ? "Black" : "White";
+                    JOptionPane.showMessageDialog(frame, 
+                        "Checkmate! " + winner + " wins!", 
+                        "Game Over", 
+                        JOptionPane.INFORMATION_MESSAGE);
+                    System.exit(0); 
+                } else if (backendGame.getBoard().isCheck(nextTurnColor)) {
+                    JOptionPane.showMessageDialog(frame, 
+                        nextTurnColor + " is in Check!", 
+                        "Check", 
+                        JOptionPane.WARNING_MESSAGE);
+                }
+                
+            } else {
                 JOptionPane.showMessageDialog(frame, 
-                    winner + " wins! The King has been captured.", 
-                    "Game Over", 
-                    JOptionPane.INFORMATION_MESSAGE);
-                System.exit(0); 
+                    "Invalid move! You cannot move there, or it leaves your King in check.", 
+                    "Illegal Move", 
+                    JOptionPane.WARNING_MESSAGE);
+                selectedPosition = null; 
+                resetBoardColors();      
             }
         }
     }
 
-    /**
-     * Reverts the board to the last saved snapshot in the undo stack.
-     */
     private void undoMove() {
         if (!undoStack.isEmpty()) {
             byte[] previousState = undoStack.pop();
-            backendBoard = restoreBoardSnapshot(previousState);
+            backendGame = restoreGameSnapshot(previousState);
             
             selectedPosition = null;
             resetBoardColors();
@@ -195,37 +223,36 @@ public class ChessGUI {
         }
     }
 
-    // --- HELPER METHODS TO CREATE DEEP COPIES USING SERIALIZATION ---
-
-    private byte[] takeBoardSnapshot() {
+    // --- UPDATED TO SAVE/LOAD GAME INSTEAD OF BOARD ---
+    private byte[] takeGameSnapshot() {
         try {
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             ObjectOutputStream out = new ObjectOutputStream(bos);
-            out.writeObject(backendBoard);
+            out.writeObject(backendGame);
             out.flush();
             return bos.toByteArray();
         } catch (IOException e) {
+            e.printStackTrace();
             return null;
         }
     }
 
-    private Board restoreBoardSnapshot(byte[] data) {
+    private Game restoreGameSnapshot(byte[] data) {
         try {
             ByteArrayInputStream bis = new ByteArrayInputStream(data);
             ObjectInputStream in = new ObjectInputStream(bis);
-            return (Board) in.readObject();
+            return (Game) in.readObject();
         } catch (IOException | ClassNotFoundException e) {
-            return new Board(); 
+            e.printStackTrace();
+            return new Game(); 
         }
     }
-
-    // --- REST OF THE PREVIOUS HELPER METHODS ---
 
     private void saveGameToFile() {
         JFileChooser fileChooser = new JFileChooser();
         if (fileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
             try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(fileChooser.getSelectedFile()))) {
-                out.writeObject(backendBoard);
+                out.writeObject(backendGame);
                 JOptionPane.showMessageDialog(frame, "Game saved successfully!");
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(frame, "Error saving game: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -237,7 +264,7 @@ public class ChessGUI {
         JFileChooser fileChooser = new JFileChooser();
         if (fileChooser.showOpenDialog(frame) == JFileChooser.APPROVE_OPTION) {
             try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(fileChooser.getSelectedFile()))) {
-                backendBoard = (Board) in.readObject();
+                backendGame = (Game) in.readObject();
                 selectedPosition = null;
                 undoStack.clear();
                 moveHistoryArea.setText(">> Game Loaded\n");
@@ -265,7 +292,7 @@ public class ChessGUI {
     public void refreshBoard() {
         for (int row = 0; row < 8; row++) {
             for (int col = 0; col < 8; col++) {
-                Piece piece = backendBoard.getPiece(new Position(row, col));
+                Piece piece = backendGame.getBoard().getPiece(new Position(row, col));
                 if (piece != null) {
                     squares[row][col].setText(getPieceSymbol(piece));
                 } else {

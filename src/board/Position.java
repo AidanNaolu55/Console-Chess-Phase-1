@@ -1,25 +1,36 @@
 package board;
 
-/**
- * Represents a specific square on the 8x8 chessboard.
- */
-public class Position {
-    
+import java.io.Serializable;
+import java.util.Objects;
+
+public class Position implements Serializable {
     private int row;
     private int column;
 
-    // constructor
     public Position(int row, int column) {
         this.row = row;
         this.column = column;
     }
 
-    // read the row and column
     public int getRow() {
         return row;
     }
 
     public int getColumn() {
         return column;
+    }
+
+    // Required to compare two positions (e.g., is the clicked square equal to a valid move square?)
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Position position = (Position) o;
+        return row == position.row && column == position.column;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(row, column);
     }
 }

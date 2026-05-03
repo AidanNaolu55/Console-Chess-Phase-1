@@ -1,25 +1,20 @@
 package pieces;
 
-
+import board.Board;
 import board.Position;
+import java.io.Serializable;
 import java.util.List;
 import utils.Color;
 
-/**
- * The abstract blueprint for all chess pieces.
- */
-public abstract class Piece {
-    
+public abstract class Piece implements Serializable {
     protected Color color;
     protected Position position;
 
-    // The Constructor
     public Piece(Color color, Position position) {
         this.color = color;
         this.position = position;
     }
 
-    // Getters
     public Color getColor() {
         return color;
     }
@@ -28,13 +23,13 @@ public abstract class Piece {
         return position;
     }
 
-    // Setter 
     public void setPosition(Position position) {
         this.position = position;
     }
 
     /**
-     * Every specific piece must create its own version of this method 
+     * Every specific piece (Pawn, Knight, etc.) must implement this to define how it moves.
+     * We pass the Board so the piece knows where other pieces are (to block paths or capture).
      */
-    public abstract List<Position> possibleMoves();
+    public abstract List<Position> possibleMoves(Board board);
 }

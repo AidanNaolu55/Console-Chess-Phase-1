@@ -1,119 +1,168 @@
 package board;
 
-// import pieces and colors
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import pieces.*;
 import utils.Color;
 
-public class Board {
-    // This is our 8x8 grid. It is an array of arrays that holds 'Piece' objects.
+public class Board implements Serializable {
     private Piece[][] grid;
+    private List<Piece> capturedPieces; // Phase 1 requirement [cite: 60]
 
-    // Constructor: When a new Board is created, build the grid and set up the pieces
     public Board() {
-        grid = new Piece[8][8]; // 8 rows, 8 columns
-        initializeBoard();
+        grid = new Piece[8][8];
+        capturedPieces = new ArrayList<>();
+        setupBoard();
     }
 
     /**
-     * Sets up the board with pieces in their standard starting positions.
+     * Initializes the standard chess starting positions.
      */
-    private void initializeBoard() {
-        // 1. Place Black Pieces (Top of the board: Row 0 and Row 1)
-        grid[0][0] = new Rook(Color.BLACK, new Position(0, 0));
-        grid[0][1] = new Knight(Color.BLACK, new Position(0, 1));
-        grid[0][2] = new Bishop(Color.BLACK, new Position(0, 2));
-        grid[0][3] = new Queen(Color.BLACK, new Position(0, 3));
-        grid[0][4] = new King(Color.BLACK, new Position(0, 4));
-        grid[0][5] = new Bishop(Color.BLACK, new Position(0, 5));
-        grid[0][6] = new Knight(Color.BLACK, new Position(0, 6));
-        grid[0][7] = new Rook(Color.BLACK, new Position(0, 7));
-
-        // Place 8 Black Pawns in Row 1
+    private void setupBoard() {
+        // Initialize Pawns
         for (int col = 0; col < 8; col++) {
             grid[1][col] = new Pawn(Color.BLACK, new Position(1, col));
-        }
-
-        // 2. Place White Pieces (Bottom of the board: Row 6 and Row 7)
-        // Place 8 White Pawns in Row 6
-        for (int col = 0; col < 8; col++) {
             grid[6][col] = new Pawn(Color.WHITE, new Position(6, col));
         }
 
+        // Initialize Rooks
+        grid[0][0] = new Rook(Color.BLACK, new Position(0, 0));
+        grid[0][7] = new Rook(Color.BLACK, new Position(0, 7));
         grid[7][0] = new Rook(Color.WHITE, new Position(7, 0));
-        grid[7][1] = new Knight(Color.WHITE, new Position(7, 1));
-        grid[7][2] = new Bishop(Color.WHITE, new Position(7, 2));
-        grid[7][3] = new Queen(Color.WHITE, new Position(7, 3));
-        grid[7][4] = new King(Color.WHITE, new Position(7, 4));
-        grid[7][5] = new Bishop(Color.WHITE, new Position(7, 5));
-        grid[7][6] = new Knight(Color.WHITE, new Position(7, 6));
         grid[7][7] = new Rook(Color.WHITE, new Position(7, 7));
+
+        // Initialize Knights
+        grid[0][1] = new Knight(Color.BLACK, new Position(0, 1));
+        grid[0][6] = new Knight(Color.BLACK, new Position(0, 6));
+        grid[7][1] = new Knight(Color.WHITE, new Position(7, 1));
+        grid[7][6] = new Knight(Color.WHITE, new Position(7, 6));
+
+        // Initialize Bishops
+        grid[0][2] = new Bishop(Color.BLACK, new Position(0, 2));
+        grid[0][5] = new Bishop(Color.BLACK, new Position(0, 5));
+        grid[7][2] = new Bishop(Color.WHITE, new Position(7, 2));
+        grid[7][5] = new Bishop(Color.WHITE, new Position(7, 5));
+
+        // Initialize Queens
+        grid[0][3] = new Queen(Color.BLACK, new Position(0, 3));
+        grid[7][3] = new Queen(Color.WHITE, new Position(7, 3));
+
+        // Initialize Kings
+        grid[0][4] = new King(Color.BLACK, new Position(0, 4));
+        grid[7][4] = new King(Color.WHITE, new Position(7, 4));
+    }
+
+    public Piece getPiece(Position position) {
+        if (isWithinBounds(position)) {
+            return grid[position.getRow()][position.getColumn()];
+        }
+        return null;
     }
 
     /**
-     * Prints the current state of the board to the console.
+     * Physically moves a piece on the board and handles basic capturing[cite: 63, 139].
+     * (Move validation happens BEFORE calling this method).
      */
-    public void display() {
-        System.out.println("   A  B  C  D  E  F  G  H"); // Top letters
-        
-        for (int row = 0; row < 8; row++) {
-            // Print the row number on the left side (8 down to 1)
-            System.out.print((8 - row) + " "); 
+    public void movePiece(Position from, Position to) {
+        Piece movingPiece = getPiece(from);
+        Piece targetPiece = getPiece(to);
 
-            for (int col = 0; col < 8; col++) {
-                Piece piece = grid[row][col];
-                
-                // If the cubby is empty, print two pound signs
-                if (piece == null) {
-                    System.out.print(" ##");
-                } else {
-                    // Figure out the letter to print based on the piece type
-                    String pieceString = "";
-                    if (piece.getColor() == Color.WHITE) pieceString += "w";
-                    else pieceString += "b";
-
-                    if (piece instanceof Pawn) pieceString += "p";
-                    else if (piece instanceof Rook) pieceString += "R";
-                    else if (piece instanceof Knight) pieceString += "N";
-                    else if (piece instanceof Bishop) pieceString += "B";
-                    else if (piece instanceof Queen) pieceString += "Q";
-                    else if (piece instanceof King) pieceString += "K";
-
-                    System.out.print(" " + pieceString);
-                }
+        if (movingPiece != null) {
+            // If there's an opponent piece there, capture it
+            if (targetPiece != null) {
+                capturedPieces.add(targetPiece);
             }
-            System.out.println(); // Move to the next line after finishing a row
+            
+            // Update the 2D array
+            grid[to.getRow()][to.getColumn()] = movingPiece;
+            grid[from.getRow()][from.getColumn()] = null;
+            
+            // Update the piece's internal tracker
+            movingPiece.setPosition(to);
         }
     }
 
-    /**
-     * Returns the piece at the specified position.
-     */
-    public Piece getPiece(Position position) {
-        return grid[position.getRow()][position.getColumn()];
+    // Helper methods for the pieces to check for legal moves
+    public boolean isWithinBounds(Position pos) {
+        return pos.getRow() >= 0 && pos.getRow() < 8 && pos.getColumn() >= 0 && pos.getColumn() < 8;
     }
     
-    /**
-     * Moves a piece from one position to another.
-     * For Phase 1, this just physically moves the piece in the array 
-     * without checking complex chess rules.
-     */
-    public boolean movePiece(Position from, Position to) {
-        // Find the piece at the starting square
-        Piece piece = grid[from.getRow()][from.getColumn()];
-        
-        if (piece == null) {
-            System.out.println("Error: There is no piece at the starting position!");
-            return false;
-        }
+    public boolean isSquareEmpty(Position pos) {
+        return isWithinBounds(pos) && getPiece(pos) == null;
+    }
 
-        // Put the piece in the new square
-        grid[to.getRow()][to.getColumn()] = piece;
-        // Empty out the old square
+    // --- NEW METHODS FOR CHECK AND CHECKMATE ---
+
+    public Position getKingPosition(Color color) {
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Piece piece = grid[row][col];
+                if (piece instanceof King && piece.getColor() == color) {
+                    return new Position(row, col);
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean isCheck(Color color) {
+        Position kingPos = getKingPosition(color);
+        if (kingPos == null) return false;
+
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Piece piece = grid[row][col];
+                // If it's an opponent's piece, see if it can attack the King
+                if (piece != null && piece.getColor() != color) {
+                    java.util.List<Position> moves = piece.possibleMoves(this);
+                    if (moves.contains(kingPos)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean testMoveLeavesKingInCheck(Position from, Position to, Color color) {
+        Piece movingPiece = getPiece(from);
+        Piece targetPiece = getPiece(to);
+
+        // Simulate the move temporarily
+        grid[to.getRow()][to.getColumn()] = movingPiece;
         grid[from.getRow()][from.getColumn()] = null;
+        movingPiece.setPosition(to);
+
+        boolean inCheck = isCheck(color);
+
+        // Undo the temporary move
+        grid[from.getRow()][from.getColumn()] = movingPiece;
+        grid[to.getRow()][to.getColumn()] = targetPiece;
+        movingPiece.setPosition(from);
+
+        return inCheck;
+    }
+
+    public boolean isCheckmate(Color color) {
         
-        // Update the piece's internal record of where it lives
-        piece.setPosition(to); 
-        
+        if (!isCheck(color)) return false; 
+
+        // Check if ANY piece has a valid move that gets the King out of check
+        for (int row = 0; row < 8; row++) {
+            for (int col = 0; col < 8; col++) {
+                Piece piece = grid[row][col];
+                if (piece != null && piece.getColor() == color) {
+                    java.util.List<Position> moves = piece.possibleMoves(this);
+                    for (Position move : moves) {
+                        if (!testMoveLeavesKingInCheck(new Position(row, col), move, color)) {
+                            // We found at least one move that saves the King!
+                            return false; 
+                        }
+                    }
+                }
+            }
+        }
         return true;
     }
 }
